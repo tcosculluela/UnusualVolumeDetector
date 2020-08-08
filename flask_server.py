@@ -10,8 +10,8 @@ import queue
 UPDATE_FREQ = 5
 
 month_cut = 6
-day_cut = 3
-std_cut = 4
+day_cut = 1
+std_cut = 6
 
 stonk_search = mainObj(_month_cuttoff=month_cut,_day_cuttoff=day_cut,_std_cuttoff=std_cut)
 stonks = []
@@ -59,7 +59,7 @@ def create_flask_app(_refresh=False):
   @app.route('/', methods=['GET'])
   def home():
     if _refresh:
-      return render_template('dynamicRefresh.html', stonks=stonks, month_cut=6, day_cut=3, std_cut=2, update_time=stonk_search.updated_at)
+      return render_template('dynamicRefresh.html', stonks=stonks, month_cut=6, day_cut=1, std_cut=2, update_time=stonk_search.updated_at)
     else:
       return render_template('dynamic.html', stonks=stonks, month_cut=6, day_cut=3, std_cut=2, update_time=stonk_search.updated_at)
 
@@ -115,7 +115,7 @@ def create_flask_app(_refresh=False):
 if __name__ == "__main__":
     AUTO_REFRESH = True
 
-    stonk_search = mainObj(_month_cuttoff=6,_day_cuttoff=3,_std_cuttoff=4)
+    stonk_search = mainObj(_month_cuttoff=6,_day_cuttoff=1,_std_cuttoff=4)
     stonks = stonk_search.main_func(doFilter=True)
 
     app = create_flask_app(AUTO_REFRESH)

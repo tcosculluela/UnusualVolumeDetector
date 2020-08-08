@@ -3,3 +3,6 @@ __pycache__/
 __pycache__
 *.pyc
 .vscode/settings.json
+data/otherlisted.txt
+data/alllisted.txt
+data/nasdaqlisted.txt
