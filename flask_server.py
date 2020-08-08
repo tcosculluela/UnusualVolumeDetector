@@ -35,7 +35,8 @@ def create_flask_app(_refresh=False):
       stonks = stonk_search.main_func(doFilter=True)
 
   def refresh_wrapper(month_cut,day_cut,std_cut):
-    rThread = Thread(target=refresh_thread, args=(month_cut,day_cut,std_cut))
+    rThread = Thread(target=refresh_thread, args=(month_cut,day_cut,std_cut), daemon=True)
+    rThread.daemon = True
 
     rThread.start()
     rThread.join()
