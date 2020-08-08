@@ -49,10 +49,17 @@ class mainObj:
         allcalls = []
         allputs = []
 
+        try:
+            opt_ticker.options
+        except: # no option chain for this ticker
+            return ([],[],[])
+
         for exp in opt_ticker.options:
             opt_calls, opt_puts = opt_ticker.option_chain(exp)
-            if opt_calls.empty or opt_calls.empty: # no option chain for this ticker
-                return
+
+            if (opt_calls.empty or opt_calls.volume.empty) or (opt_puts.empty or opt_puts.volume.empty): # double check
+                return ([],[],[])
+                
             tmp_call = opt_calls.iloc[opt_calls['volume'].argmax()][['contractSymbol', 'strike', 'percentChange', 'volume', 'openInterest', 'impliedVolatility']]
             tmp_call['Exp'] = exp
             allcalls.append(tmp_call)
@@ -108,53 +115,50 @@ class mainObj:
         positive_scans.append(stonk)
         return
 
-    def parallel_options(self,x,call_list,put_list):
+    def parallel_options(self,x,positive_scans):
         all_calls, all_puts, opts_exp = self.getOptions(x)
 
-        print(f"chain length {len(opts_exp)}")
 
         if len(all_calls) < 1:
             return
 
         stonk_calls = dict()
-        stonk_calls['Ticker'] = x
-        for c in all_calls:
-            print(c)
-            print('--')
-        stonk_calls['Strike'] = [call.strike for call in all_calls]
-        print(stonk_calls)
-        stonk_calls['Volume'] = all_calls['volume']
-        stonk_calls['OI'] = all_calls['openInterest']
-        stonk_calls['IV'] = all_calls['impliedVolatility']
 
-        print(stonk_calls)
+        stonk_calls['Strike'] = [call.strike for call in all_calls]
+        stonk_calls['Exp'] = [call.Exp for call in all_calls]
+        stonk_calls['Volume'] = [call.volume for call in all_calls]
+        stonk_calls['OI'] = [call.openInterest for call in all_calls]
+        stonk_calls['IV'] = [call.impliedVolatility for call in all_calls]
+        stonk_calls['Change'] = [call.percentChange for call in all_calls]
 
         stonk_puts = dict()
-        stonk_puts['Ticker'] = x
-        stonk_puts['Strike'] = all_puts['strike']
-        stonk_puts['Volume'] = all_puts['volume']
-        stonk_puts['OI'] = all_puts['openInterest']
-        stonk_puts['IV'] = all_puts['impliedVolatility']
+
+        stonk_puts['Strike'] = [put.strike for put in all_puts]
+        stonk_puts['Exp'] = [put.Exp for put in all_calls]
+        stonk_puts['Volume'] = [put.volume for put in all_puts]
+        stonk_puts['OI'] = [put.openInterest for put in all_puts]
+        stonk_puts['IV'] = [put.impliedVolatility for put in all_puts]
+        stonk_puts['Change'] = [put.percentChange for put in all_puts]
 
         stonk_option = dict()
         stonk_option['Ticker'] = x
         stonk_option['Calls'] = stonk_calls
         stonk_option['Puts'] = stonk_puts
 
-
-        #self.customPrint(stonk)
-        call_list.append(stonk_calls)
-        put_list.append(stonk_puts)
+        positive_scans.append(stonk_option)
         return
 
-    def main_func(self,doFilter=False):
+    def main_func(self,doFilter=False,invertFilter=False):
         manager = multiprocessing.Manager()
         positive_scans = manager.list()
 
         StocksController = NasdaqController(True)
         list_of_tickers = StocksController.getList()
         if doFilter:
-            filtered_tickers = pd.read_csv('filtered_tickers.csv', names=['Ticker'], index_col=None, header=None).Ticker.astype('string')
+            if invertFilter:
+                filtered_tickers = pd.read_csv('excluded_tickers.csv', names=['Ticker'], index_col=None, header=None).Ticker.astype('string')
+            else:
+                filtered_tickers = pd.read_csv('filtered_tickers.csv', names=['Ticker'], index_col=None, header=None).Ticker.astype('string')
             list_of_tickers = list(filtered_tickers.values)
 
         print(f'num tickers: {len(list_of_tickers)}')
@@ -171,12 +175,12 @@ class mainObj:
 
         if self.scan_options:
             print('scanning options')
-            for x in tqdm(list_of_tickers, miniters=1):
-                self.parallel_options(x, positive_scans)
+            '''for x in tqdm(list_of_tickers, miniters=1):
+                self.parallel_options(x, positive_scans)'''
 
-            '''with parallel_backend('loky', n_jobs=num_worker_threads * 2):
+            with parallel_backend('loky', n_jobs=num_worker_threads):
                 Parallel()(delayed(self.parallel_options)(x, positive_scans)
-                       for x in tqdm(list_of_tickers, miniters=1))'''
+                       for x in tqdm(list_of_tickers, miniters=1))
         else:
             print('scanning stonks')
             with parallel_backend('loky', n_jobs=num_worker_threads * 2):
@@ -192,7 +196,8 @@ class mainObj:
 
 
 if __name__ == '__main__':
-    results = mainObj(_month_cuttoff=6,_day_cuttoff=3,_std_cuttoff=9,_scanopts=True).main_func(doFilter=False) #customize these params to your liking
+    results = mainObj(_month_cuttoff=6,_day_cuttoff=3,_std_cuttoff=9,_scanopts=True).main_func() #customize these params to your liking
     for outlier in results:
         print(outlier)
+        print('---')
     print(f'\nnum outliers: {len(results)}')
